@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="dependencies\**" />
+    <EmbeddedResource Remove="dependencies\**" />
+    <None Remove="dependencies\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GBX.NET" Version="1.2.2" />
+    <PackageReference Include="GBX.NET.LZO" Version="1.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="dependencies\ColladaNET\ColladaNET\ColladaNET.csproj" />
+  </ItemGroup>
+
+</Project>

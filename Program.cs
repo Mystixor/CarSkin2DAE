@@ -42,7 +42,7 @@ namespace CS2DAE
             {
                 GBX.NET.Node? carSkin = GameBox.ParseNode(args[0]);
 
-                var carParts = new List<Tuple<string, ushort[], CPlugVisual3D.Vertex[], CPlugVisual.TexCoordSet[], Iso4>>();
+                var carParts = new List<Tuple<string, ushort[], CPlugVisual3D.Vertex[], CPlugVisual.TexCoordSet[], Iso4, Int3[]>>();
 
                 if (carSkin is CPlugSolid solid)
                 {
@@ -65,7 +65,9 @@ namespace CS2DAE
                                     CPlugVisual3D.Vertex[] vertices = triangles.Vertices;
                                     CPlugVisual.TexCoordSet[] texCoords = triangles.TexCoords;
 
-                                    carParts.Add(new Tuple<string, ushort[], CPlugVisual3D.Vertex[], CPlugVisual.TexCoordSet[], Iso4>(name, indices, vertices, texCoords, translation is Iso4 trans ? trans : Iso4.Identity));
+                                    Int3[]? subVisuals = triangles.SubVisuals;
+
+                                    carParts.Add(new Tuple<string, ushort[], CPlugVisual3D.Vertex[], CPlugVisual.TexCoordSet[], Iso4, Int3[]>(name, indices, vertices, texCoords, translation is Iso4 trans ? trans : Iso4.Identity, subVisuals is Int3[] subV ? subV.Length != 0 ? subV : new Int3[] { new Int3(0, 0, indices.Length) } : new Int3[] {new Int3(0, 0, indices.Length)}));
                                 }
                             }
                         }
@@ -102,99 +104,115 @@ namespace CS2DAE
                     var indices = carParts[i].Item2;
                     var vertexes = carParts[i].Item3;
                     var texCoords = carParts[i].Item4;
+                    var m = carParts[i].Item5;
+                    Int3[] subVisuals = carParts[i].Item6;
 
-
-                    //  Getting all triangles in the form of a COLLADA index buffer, as well as references to the COLLADA vertex and texcoord buffer (called input)
-                    int[] indicesInt = new int[indices.Length * 2];
-                    for(int j = 0; j < indices.Length; j++)
+                    for(int l = 0; l < subVisuals.Length; l++)
                     {
-                        indicesInt[2 * j + 0] = indices[j];
-                        indicesInt[2 * j + 1] = indices[j];
-                    }
-
-                    InputOffset[] inputs = new InputOffset[texCoords.Length + 1];
-                    inputs[0] = new InputOffset("VERTEX", "#" + name + "-mesh-vertices", 0);
-                    for(int j = 0; j < texCoords.Length; j++)
-                    {
-                        inputs[j + 1] = new InputOffset("TEXCOORD", "#" + name + "-mesh-map-" + j, (ulong)(1 + j), (ulong)j);
-                    }
-                    Triangles triangles = new Triangles((ulong)indices.Length / 3, "", indicesInt);
-                    triangles.input = inputs;
-
-
-                    //  Creating the vertices by referencing the position buffer
-                    Vertices vertices = new Vertices(name + "-mesh-vertices", new Input("POSITION", "#" + name + "-mesh-positions"));
-
-
-                    //  Creating the position buffer
-                    float[] verticesFloat = new float[] { };
-                    Array.Resize(ref verticesFloat, vertexes.Length * 3);
-                    for(int j = 0; j < vertexes.Length; j++)
-                    {
-                        Vec3 pos = vertexes[j].Position;
-                        verticesFloat[3 * j + 0] = pos.X;
-                        verticesFloat[3 * j + 1] = pos.Y;
-                        verticesFloat[3 * j + 2] = pos.Z;
-                    }
-
-                    FloatArray posFloatArray = new FloatArray(name + "-mesh-positions-array", verticesFloat);
-
-                    Param[] posParam = new Param[] { new Param("float", "X"), new Param("float", "Y"), new Param("float", "Z") };
-                    Accessor posAccessor = new Accessor((ulong)verticesFloat.Length / 3, "#" + name + "-mesh-positions-array", (ulong)0, (ulong)3, posParam);
-                    Source.TechniqueCommon posTechniqueCommon = new Source.TechniqueCommon(posAccessor);
-
-                    Source positionSource = new Source(name + "-mesh-positions", posFloatArray, posTechniqueCommon);
-
-
-                    //  Creating the texcoord buffer
-                    Source[] sources = new Source[] { };
-                    Array.Resize(ref sources, texCoords.Length + 1);
-                    sources[0] = positionSource;
-                    Param[] texCoordParam = new Param[] { new Param("float", "S"), new Param("float", "T") };
-                    for (int j = 0; j < texCoords.Length; j++)
-                    {
-                        float[] texCoordFloat = new float[] { };
-                        Array.Resize(ref texCoordFloat, texCoords[j].Count * 2);
-                        //foreach (var texCoord in texCoords[j])
-                        for(int k = 0; k < texCoords[j].Count; k++)
+                        //  The second subvisual, if present, seems to be the damaged version of the mesh, prefixed with an underscore
+                        if (l == 1)
+                            name = "_" + name;
+                        else if (l > 1)
                         {
-                            Vec2 uv = texCoords[j].ElementAt(k).UV;
-                            texCoordFloat[2 * k + 0] = uv.X;
-                            texCoordFloat[2 * k + 1] = uv.Y;
+                            System.Console.Out.WriteLine("This model has more than one Subvisual! Please report this to @mystixor on Discord.");
+                            System.Console.Out.WriteLine("\nFile:\t\"" + args[0] + "\"");
+                            System.Console.Out.WriteLine("\nMesh:\t\"" + name + "\"");
                         }
 
-                        FloatArray texCoordFloatArray = new FloatArray(name + "-mesh-map-" + j + "-array", texCoordFloat);
 
-                        Accessor texCoordAccessor = new Accessor((ulong)texCoordFloat.Length / 2, "#" + name + "-mesh-map-" + j + "-array", (ulong)0, (ulong)2, texCoordParam);
-                        Source.TechniqueCommon texCoordTechniqueCommon = new Source.TechniqueCommon(texCoordAccessor);
+                        //  Getting all triangles in the form of a COLLADA index buffer, as well as references to the COLLADA vertex and texcoord buffer (called input)
+                        int[] indicesInt = new int[indices.Length * 2];
+                        for (int j = 0; j < indices.Length; j++)
+                        {
+                            indicesInt[2 * j + 0] = indices[j];
+                            indicesInt[2 * j + 1] = indices[j];
+                        }
 
-                        Source texCoordSource = new Source(name + "-mesh-map-" + j, texCoordFloatArray, texCoordTechniqueCommon);
+                        InputOffset[] inputs = new InputOffset[texCoords.Length + 1];
+                        inputs[0] = new InputOffset("VERTEX", "#" + name + "-mesh-vertices", 0);
+                        for (int j = 0; j < texCoords.Length; j++)
+                        {
+                            inputs[j + 1] = new InputOffset("TEXCOORD", "#" + name + "-mesh-map-" + j, (ulong)(1 + j), (ulong)j);
+                        }
+                        Triangles triangles = new Triangles((ulong)indices.Length / 3, "", indicesInt);
+                        triangles.input = inputs;
 
-                        sources[j + 1] = texCoordSource;
+
+                        //  Creating the vertices by referencing the position buffer
+                        Vertices vertices = new Vertices(name + "-mesh-vertices", new Input("POSITION", "#" + name + "-mesh-positions"));
+
+
+                        //  Creating the position buffer
+                        float[] verticesFloat = new float[] { };
+                        var subVisualVertexOffset = subVisuals[l].X;
+                        var vertexCount = l < subVisuals.Length - 1 ? subVisuals[l + 1].X : vertexes.Length - subVisualVertexOffset;
+                        Array.Resize(ref verticesFloat, vertexCount * 3);
+                        for (int j = 0; j < vertexCount; j++)
+                        {
+                            Vec3 pos = vertexes[j + subVisualVertexOffset].Position;
+                            verticesFloat[3 * j + 0] = pos.X;
+                            verticesFloat[3 * j + 1] = pos.Y;
+                            verticesFloat[3 * j + 2] = pos.Z;
+                        }
+
+                        FloatArray posFloatArray = new FloatArray(name + "-mesh-positions-array", verticesFloat);
+
+                        Param[] posParam = new Param[] { new Param("float", "X"), new Param("float", "Y"), new Param("float", "Z") };
+                        Accessor posAccessor = new Accessor((ulong)verticesFloat.Length / 3, "#" + name + "-mesh-positions-array", (ulong)0, (ulong)3, posParam);
+                        Source.TechniqueCommon posTechniqueCommon = new Source.TechniqueCommon(posAccessor);
+
+                        Source positionSource = new Source(name + "-mesh-positions", posFloatArray, posTechniqueCommon);
+
+
+                        //  Creating the texcoord buffer
+                        Source[] sources = new Source[] { };
+                        Array.Resize(ref sources, texCoords.Length + 1);
+                        sources[0] = positionSource;
+                        Param[] texCoordParam = new Param[] { new Param("float", "S"), new Param("float", "T") };
+                        for (int j = 0; j < texCoords.Length; j++)
+                        {
+                            float[] texCoordFloat = new float[] { };
+                            Array.Resize(ref texCoordFloat, vertexCount * 2);
+                            //foreach (var texCoord in texCoords[j])
+                            for (int k = 0; k < vertexCount; k++)
+                            {
+                                Vec2 uv = texCoords[j].ElementAt(k + subVisualVertexOffset).UV;
+                                texCoordFloat[2 * k + 0] = uv.X;
+                                texCoordFloat[2 * k + 1] = uv.Y;
+                            }
+
+                            FloatArray texCoordFloatArray = new FloatArray(name + "-mesh-map-" + j + "-array", texCoordFloat);
+
+                            Accessor texCoordAccessor = new Accessor((ulong)texCoordFloat.Length / 2, "#" + name + "-mesh-map-" + j + "-array", (ulong)0, (ulong)2, texCoordParam);
+                            Source.TechniqueCommon texCoordTechniqueCommon = new Source.TechniqueCommon(texCoordAccessor);
+
+                            Source texCoordSource = new Source(name + "-mesh-map-" + j, texCoordFloatArray, texCoordTechniqueCommon);
+
+                            sources[j + 1] = texCoordSource;
+                        }
+
+
+                        //  Assembling vertices and triangles to a finished mesh
+                        Mesh mesh = new Mesh();
+                        mesh.vertices = vertices;
+                        mesh.primitives = new object[] { triangles };
+                        mesh.source = sources;
+                        Geometry geometry = new Geometry(name + "-mesh", name, mesh);
+
+                        daeBuilder.AddGeometry(geometry);
+
+
+                        //  Construct a node that will get the transformation matrix and a reference to the respective geometry of the model
+                        ColladaNET.Node NODE = new ColladaNET.Node(name, name, "", NodeType.NODE);
+
+                        ColladaNET.Elements.Matrix matrix = new ColladaNET.Elements.Matrix("transform", new float[] { m.XX, m.XY, m.XZ, m.TX, m.YX, m.YY, m.YZ, m.TY, m.ZX, m.ZY, m.ZZ, m.TZ, 0F, 0F, 0F, 1F });
+                        NODE.transformation = NODE.transformation.Append(matrix).ToArray();
+
+                        NODE.AddInstanceGeometry("#" + name + "-mesh");
+
+                        //  Adding the node to the visual scene, thereby making the model visible
+                        daeBuilder.LibraryVisualScenes[0].AddNode(NODE);
                     }
-
-
-                    //  Assembling vertices and triangles to a finished mesh
-                    Mesh mesh = new Mesh();
-                    mesh.vertices = vertices;
-                    mesh.primitives = new object[] { triangles };
-                    mesh.source = sources;
-                    Geometry geometry = new Geometry(carParts[i].Item1 + "-mesh", carParts[i].Item1, mesh);
-
-                    daeBuilder.AddGeometry(geometry);
-
-
-                    //  Construct a node that will get the transformation matrix and a reference to the respective geometry of the model
-                    ColladaNET.Node NODE = new ColladaNET.Node(name, name, "", NodeType.NODE);
-
-                    Iso4 m = carParts[i].Item5;
-                    ColladaNET.Elements.Matrix matrix = new ColladaNET.Elements.Matrix("transform", new float[] { m.XX, m.XY, m.XZ, m.TX, m.YX, m.YY, m.YZ, m.TY, m.ZX, m.ZY, m.ZZ, m.TZ, 0F, 0F, 0F, 1F});
-                    NODE.transformation = NODE.transformation.Append(matrix).ToArray();
-
-                    NODE.AddInstanceGeometry("#" + name + "-mesh");
-
-                    //  Adding the node to the visual scene, thereby making the model visible
-                    daeBuilder.LibraryVisualScenes[0].AddNode(NODE);
                 }
 
                 //  Finish building the COLLADA model

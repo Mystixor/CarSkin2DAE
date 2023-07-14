@@ -18,8 +18,4 @@
     <PackageReference Include="GBX.NET.LZO" Version="1.0.3" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="dependencies\ColladaNET\ColladaNET\ColladaNET.csproj" />
-  </ItemGroup>
-
 </Project>

@@ -211,12 +211,12 @@ namespace CS2DAE
                 stopwatch.Stop();
                 System.Console.Out.WriteLine("\nExport took {0} seconds.", stopwatch.ElapsedMilliseconds / 1000.0);
             }
-            catch(NotAGbxException ex)
+            catch(NotAGbxException)
             {
                 System.Console.Out.WriteLine("The supplied file is not a GBX file. Be sure to supply a GBX file like \"MainBody.solid.gbx\"!");
                 System.Console.Out.WriteLine("\nYour input:\t\"" + args[0] + "\"");
             }
-            catch(FileNotFoundException ex)
+            catch(FileNotFoundException)
             {
                 System.Console.Out.WriteLine("The supplied file path does not point to a valid file.");
                 System.Console.Out.WriteLine("\nYour input:\t\"" + args[0] + "\"");
